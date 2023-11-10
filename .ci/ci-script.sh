@@ -30,21 +30,21 @@ set -ex
 if [ "$GENERATOR" = "Ninja" ];
 then
   VERBOSE="-v"
-  KEEPGOING="-k0"
-  JOBS=""
+  KEEPGOING="-k1"
+  JOBS="-j2"
 fi;
 
 if [ "$GENERATOR" = "Unix Makefiles" ];
 then
   VERBOSE="VERBOSE=1";
-  KEEPGOING="-k"
+  KEEPGOING="-k1"
   JOBS="-j2"
 fi;
 
 if [ "$GENERATOR" = "MSYS Makefiles" ];
 then
   VERBOSE="VERBOSE=1";
-  KEEPGOING="-k"
+  KEEPGOING="-k1"
   JOBS="-j2"
 fi;
 

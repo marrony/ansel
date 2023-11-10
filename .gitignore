@@ -27,3 +27,5 @@ AppDir
 appimage-build
 linuxdeploy-plugin-gtk.sh
 src/tests/integration/*/*
+src/tests/integration/*/*
+packaging/macosx/package/

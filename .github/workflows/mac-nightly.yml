@@ -6,19 +6,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  Win64:
+  macos:
     if: github.repository == 'aurelienpierreeng/ansel' || github.event_name == 'workflow_dispatch'
     name: Nightly Ansel Mac OS build
-    runs-on: macos-12
+    runs-on: macos-15  # macos-15-xlarge
     strategy:
       fail-fast: false
       matrix:
         build:
-          - { os: macos-12,    xcode: 13.4,   deployment: 12.3 }
+          - { os: macos-15, xcode: 16.0, deployment: 15.0 }
         btype:
           - Release
         compiler:
-          - { compiler: XCode,   CC: cc, CXX: c++ }
+          - { compiler: XCode, CC: cc, CXX: c++ }
         eco: [-DBINARY_PACKAGE_BUILD=ON]
         target:
           - skiptest
@@ -32,44 +32,39 @@ jobs:
       CXX: ${{ matrix.compiler.CXX }}
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.build.deployment }}
       SRC_DIR: ${{ github.workspace }}/src
-      BUILD_DIR: ${{ github.workspace }}/build
-      INSTALL_PREFIX: ${{ github.workspace }}/install
+      BUILD_DIR: ${{ github.workspace }}/src/build
+      INSTALL_PREFIX: ${{ github.workspace }}/src/build/macosx
       CMAKE_BUILD_TYPE: ${{ matrix.btype }}
       GENERATOR: ${{ matrix.generator }}
       TARGET: ${{ matrix.target }}
       BRANCH: ${{ matrix.branch.code }}
       BUILD_NAME: ${{ matrix.branch.label }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ env.BRANCH }}
-          fetch-depth: 1
+          fetch-depth: 0
           submodules: true
           path: src
       - name: Install Base Dependencies
         run: |
+          brew --prefix
           brew update > /dev/null || true
-          brew unlink python@3.8
-          brew unlink python@3.11
-          sudo rm '/usr/local/bin/2to3'
-          # python 3.11 already installed on the system. We need to remove the symlinks
-          # so python 3.10 can capture them.
-          sudo rm '/usr/local/bin/idle3'
-          sudo rm '/usr/local/bin/pydoc3'
-          sudo rm '/usr/local/bin/python3'
-          sudo rm '/usr/local/bin/python3-config'
-          # brew link --overwrite python@3.9 # workaround introduced 30.12.2020, replace asap.
-          brew link --overwrite python@3.10 # workaround introduced 16.12.2022
-          # brew upgrade --ignore-pinned # workaround introduced 18.07.2021, replace asap
+          # brew upgrade || true        # No need for a very time-consuming upgrade of ALL packages
+          #brew upgrade gd               # See https://github.com/Homebrew/homebrew-core/issues/141766
           brew tap Homebrew/bundle
           cd src/.ci
-          brew bundle --verbose
-          brew link --force libomp # fix for keg-only libomp
+          export HOMEBREW_NO_INSTALL_UPGRADE=1
+          brew bundle --verbose || true
+          # handle keg-only libs
+          brew link --force libomp
+          brew link --force libsoup@2
+          brew link --force icu4c@74
       - name: Update lensfun data
         if: ${{ success() }}
         run: |
           lensfun-update-data
       - name: Build and Install
+        if: ${{ success() }}
         run: |
           cmake -E make_directory "${BUILD_DIR}";
           cmake -E make_directory "${INSTALL_PREFIX}";
@@ -87,26 +82,42 @@ jobs:
                  --conf worker_threads=4 -t 4 \
                  --conf plugins/lighttable/export/force_lcms2=FALSE \
                  --conf plugins/lighttable/export/iccintent=0 || true # OpenMP builds crash for most configs
+      - name: Build macOS package
+        run: |
+          ./src/packaging/macosx/make_ansel_package.sh
+      - name: Create DMG file
+        run: |
+          ./src/packaging/macosx/make_ansel_dmg.sh
+      - name: Get version info
+        run: |
+          cd ${{ env.SRC_DIR }}
+          echo "VERSION=$(git describe --tags --match release-* | sed 's/^release-//;s/-/+/;s/-/~/;s/rc/~rc/')-$(uname -m)" >> $GITHUB_ENV
       - name: Package upload
         if: ${{ success() }}
         uses: actions/upload-artifact@v3
         with:
-          name: ansel.${{ env.BUILD_NAME }}.mac
-          path: ${{ env.BUILD_DIR }}/ansel-*.dmg
-          retention-days: 90
+          path: ${{ env.BUILD_DIR }}/macosx/ansel-*.dmg
+          retention-days: 2
 
   upload_to_release:
+    permissions:
+      # We need write permission to update the nightly tag
+      contents: write
     runs-on: ubuntu-latest
-    needs: Win64
+    needs: [macos]
     steps:
-      - name: Download artifact
+      - name: Download artifacts
         uses: actions/download-artifact@v3
-        with:
-          name: ansel.stable.mac
       - name: Update nightly release
-        uses: eine/tip@master
+        uses: andelf/nightly-release@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag: v0.0.0
-          rm: false
-          token: ${{ secrets.GITHUB_TOKEN }}
-          files: ansel-*.dmg
+          tag_name: nightly
+          prerelease: true
+          name: 'Ansel nightly build $$'
+          body: |
+            Test
+          files: |
+            artifact/*
+

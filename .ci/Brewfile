@@ -14,6 +14,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with darktable.  If not, see <http://www.gnu.org/licenses/>.
 
+brew 'create-dmg'
 brew 'cmake'
 brew 'desktop-file-utils'
 brew 'exiv2'
@@ -24,7 +25,7 @@ brew 'gmic'
 brew 'graphicsmagick'
 brew 'gtk+3'
 brew 'gtk-mac-integration'
-brew 'icu4c'
+brew 'icu4c@74'
 brew 'intltool'
 brew 'iso-codes'
 brew 'json-glib'
@@ -49,3 +50,4 @@ brew 'perl'
 brew 'jpeg'
 brew 'jpeg-xl'
 brew 'webp'
+brew 'adwaita-icon-theme'
