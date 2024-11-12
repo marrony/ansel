@@ -9,12 +9,12 @@ jobs:
   Win64:
     if: github.repository == 'aurelienpierreeng/ansel' || github.event_name == 'workflow_dispatch'
     name: Nightly Ansel Mac OS build
-    runs-on: macos-14
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
         build:
-          - { os: macos-14,    xcode: 15.4,   deployment: 14.0 }
+          - { os: macos-15,    xcode: 16.0,   deployment: 15.0 }
         btype:
           - Release
         compiler:
@@ -40,7 +40,7 @@ jobs:
       BRANCH: ${{ matrix.branch.code }}
       BUILD_NAME: ${{ matrix.branch.label }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.BRANCH }}
           fetch-depth: 2000
@@ -55,6 +55,7 @@ jobs:
           brew bundle --verbose
           brew link --force libomp 
           brew link --force libsoup@2
+          brew link --force icu4c@74
       - name: Update lensfun data
         if: ${{ success() }}
         run: |
@@ -83,13 +84,14 @@ jobs:
           ./src/packaging/macosx/3_make_hb_ansel_package.sh
       - name: Create DMG file
         run: |
+          echo "VERSION=$(git describe --tags --match release-* | sed 's/^release-//;s/-/+/;s/-/~/;s/rc/~rc/')" >> $GITHUB_ENV
           ./src/packaging/macosx/4_make_hb_ansel_dmg.sh
       - name: Package upload
         if: ${{ success() }}
         uses: actions/upload-artifact@v3
         with:
           name: ansel.${{ env.BUILD_NAME }}.mac
-          path: ${{ env.INSTALL_PREFIX }}/Ansel-*.dmg
+          path: ${{ env.INSTALL_PREFIX }}/ansel-*.dmg
           retention-days: 90
 
   upload_to_release:
@@ -106,4 +108,4 @@ jobs:
           tag: v0.0.0
           rm: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: Ansel-*.dmg
+          files: ansel-*.dmg

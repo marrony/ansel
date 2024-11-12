@@ -47,7 +47,7 @@ echo '
 chmod -Rf go-w /Volumes/"${PROGN}"
 sync
 hdiutil detach ${device}
-DMG="${PROGN}-$(git describe --tags | sed 's/^release-//;s/-/+/;s/-/~/;s/rc/~rc/')-$(arch)"
+DMG="ansel-${VERSION:-nightly}-$(arch)"
 hdiutil convert "pack.temp.dmg" -format UDZO -imagekey zlib-level=9 -o "${DMG}"
 rm -f pack.temp.dmg
 
